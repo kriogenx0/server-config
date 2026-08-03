@@ -1,0 +1,15 @@
+# OS / editor cruft
+.DS_Store
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Per-app nginx site configs now live in each app's own repo (see README) —
+# don't track the server's copies here. `default` is host-level, not
+# per-app, so it stays tracked.
+nginx/sites-available/*
+!nginx/sites-available/default
+nginx/sites-enabled/*
+!nginx/sites-enabled/default
