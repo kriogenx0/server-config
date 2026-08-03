@@ -60,7 +60,11 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 # installs/pins its own version via `rvm install` against its
 # .ruby-version, same division of labor as Docker above.
 sudo apt-get install -y gnupg2
+# Imported for both admin (for any later interactive `rvm get`/`rvm install`
+# as admin) and root -- the installer below runs as root (`sudo bash`), and
+# checks *root's* keyring for these keys, not admin's.
 gpg2 --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+sudo gpg2 --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
 curl -sSL https://get.rvm.io | sudo bash -s stable
 sudo usermod -aG rvm admin
 
@@ -84,6 +88,17 @@ if ! id deploy >/dev/null 2>&1; then
   sudo adduser --disabled-password --gecos "" deploy
 fi
 sudo usermod -aG docker deploy
+
+# site.sh SSHes in as deploy directly from your local machine (not via
+# admin), so it needs the same key(s) already authorized for admin --
+# --disabled-password means deploy has no password to fall back on, so
+# without this, every site.sh command hangs on an unanswerable password
+# prompt.
+sudo mkdir -p /home/deploy/.ssh
+sudo cp /home/admin/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
+sudo chown -R deploy:deploy /home/deploy/.ssh
+sudo chmod 700 /home/deploy/.ssh
+sudo chmod 600 /home/deploy/.ssh/authorized_keys
 
 # Swap: bundle install / yarn / assets:precompile have OOM'd on this box's
 # RAM alone during deploys. 4G swapfile, persisted via fstab so it survives
