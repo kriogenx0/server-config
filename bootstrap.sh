@@ -123,16 +123,24 @@ grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee
 #
 # Granted to deploy, not admin — site.sh (and CI) both operate as deploy
 # now, see the comment above the deploy account creation.
+# Paths below must be each binary's *actual* resolved location (check with
+# `which <cmd>` on the box, since sudo matches the literal absolute path,
+# not whatever's on PATH at grant-authoring time) -- this box doesn't have
+# a full usr-merge, so chown/ln/rm/systemctl live in /bin, not /usr/bin,
+# even though mkdir does resolve to /usr/bin (a symlink) and nginx to
+# /usr/sbin. Getting one of these wrong doesn't error at install time --
+# it just silently falls through to an (unusable, non-interactive) sudo
+# password prompt the next time site.sh or an app's deploy.sh runs.
 TMP_SUDOERS=$(mktemp)
 cat > "$TMP_SUDOERS" <<'EOF'
 deploy ALL=(root) NOPASSWD: /usr/bin/mkdir -p /var/www/*, \
-  /usr/bin/chown deploy\:deploy /var/www/*, \
-  /usr/bin/ln -sf /etc/nginx/sites-available/* /etc/nginx/sites-enabled/*, \
-  /usr/bin/rm -f /etc/nginx/sites-enabled/*, \
-  /usr/bin/rm -f /etc/nginx/sites-available/*, \
-  /usr/bin/rm -rf /var/www/*, \
+  /bin/chown deploy\:deploy /var/www/*, \
+  /bin/ln -sf /etc/nginx/sites-available/* /etc/nginx/sites-enabled/*, \
+  /bin/rm -f /etc/nginx/sites-enabled/*, \
+  /bin/rm -f /etc/nginx/sites-available/*, \
+  /bin/rm -rf /var/www/*, \
   /usr/sbin/nginx -t, \
-  /usr/bin/systemctl reload nginx, \
+  /bin/systemctl reload nginx, \
   /usr/bin/test -f /etc/letsencrypt/live/*/cert.pem, \
   /usr/bin/openssl x509 -enddate -noout -in /etc/letsencrypt/live/*/cert.pem
 EOF

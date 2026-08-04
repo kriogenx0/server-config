@@ -129,6 +129,89 @@ and catch drift regardless of what caused it.
   own domain — never anything broader, and never touching another site's
   files.
 
+### Troubleshooting: sudoers path mismatches
+
+`sudo` matches a NOPASSWD rule against the *literal absolute path* it
+resolves the command to via `secure_path` — not whatever `command` happens
+to resolve to on your interactive shell's `$PATH`, and not whatever path
+looked right when the rule was written. Get the path wrong and there's no
+error at install time: the command just silently falls through to a
+password prompt, which breaks non-interactively the next time `site.sh` or
+an app's own `deploy.sh` runs it (e.g. from CI).
+
+This box doesn't have a full usr-merge — `mkdir` and `nginx` resolve under
+`/usr/bin`/`/usr/sbin` as expected, but `chown`, `ln`, `rm`, and
+`systemctl` actually live in `/bin`. This bit `deploy-site-scripts`
+(bootstrap.sh's shared grant) once already; see its comment for the fixed
+paths.
+
+Before writing or debugging any sudoers rule:
+- Confirm the real path: `ssh deploy@<host> which <cmd>` (or `admin@` for
+  an admin-owned grant).
+- After installing/changing a grant, verify what's actually live —
+  `sudo -l` reads the current file on disk, so this catches both wrong
+  paths and a bootstrap run that silently didn't get as far as the
+  sudoers block (e.g. an earlier `set -e` failure, like an expired apt
+  signing key mid-script):
+  `ssh deploy@<host> 'sudo -n -l'` to see every rule, or
+  `ssh deploy@<host> "sudo -n <exact command>"` to test one invocation.
+
+## Bringing up a brand-new site with its own CI-driven deploy
+
+This is the pattern `pocketproducer-web` and `magicbox-web` both use: the
+app's own `deploy/deploy.sh`, run by its own GitHub Actions workflow, owns
+its entire deploy (compose file, container lifecycle, vhost, certbot) —
+distinct from "Migrating a site to Docker" below, which assumes an
+existing site and uses `site.sh new` interactively from your machine.
+Since CI doesn't have this repo checked out, a from-scratch `deploy.sh`
+re-implements the small bit of `site.sh new` it needs (picking/persisting
+`HOST_PORT`) inline instead of shelling out to it.
+
+1. DNS: point the domain's A record(s) at this host's IP. Nothing else
+   here depends on this, but certbot's http-01 challenge will fail without
+   it.
+2. If `bootstrap.sh` changed since this host was last bootstrapped, apply
+   it: `./site.sh bootstrap` (one interactive `sudo` password prompt).
+3. In the app's own repo: `docker-compose.prod.yml`, `deploy/deploy.sh`,
+   optionally `deploy/server_setup.sh` (for any server-side secret file
+   the app needs that can't be generated automatically, e.g. an app config
+   holding a password hash), the nginx vhost + bootstrap-vhost confs, and
+   `deploy/server/sudoers.d/<app-name>` — see any of the above repos for
+   the concrete pattern, or `pocketproducer-web`'s README for the fuller
+   walkthrough.
+4. Run the app's own `server_setup.sh` if it has one (creates its
+   `/var/www/<domain>` directory via the shared NOPASSWD grant above, no
+   sudo password needed — that's the point of the shared grant).
+5. Install the app's own sudoers file (interactive, one-time, as `admin`
+   — deploy has no sudo to install its own rules):
+   ```
+   scp deploy/server/sudoers.d/<app-name> admin@<host>:/tmp/
+   ssh -t admin@<host> 'sudo visudo -c -f /tmp/<app-name> && sudo install -m 0440 -o root -g root /tmp/<app-name> /etc/sudoers.d/<app-name> && rm /tmp/<app-name>'
+   ```
+6. Generate a **dedicated** keypair for this app's CI — never reuse your
+   own personal key here (grep an existing site's `deploy` account
+   `~/.ssh/authorized_keys` and you'll see exactly this: one entry per app,
+   named `github-actions-deploy@<app>`, plus one personal key for by-hand
+   access):
+   ```
+   ssh-keygen -t ed25519 -N "" -C "github-actions-deploy@<app-name>" -f /tmp/<app>_deploy_key
+   ssh deploy@<host> "echo '$(cat /tmp/<app>_deploy_key.pub)' >> ~/.ssh/authorized_keys"
+   gh secret set DEPLOY_SSH_KEY --repo <org>/<repo> < /tmp/<app>_deploy_key
+   rm /tmp/<app>_deploy_key /tmp/<app>_deploy_key.pub
+   ```
+   (`deploy` owns its own home directory, so appending to its own
+   `authorized_keys` never needs sudo.)
+7. Push to `main` (or run the workflow manually) once, just to get an
+   image built and pushed — `deploy.sh` will likely fail at this point if
+   step 4's config file still needs secrets filled in by hand (expected).
+   Then make the GHCR package public (GitHub package settings, one-time)
+   so the server can pull it without extra credentials.
+8. Fill in any secrets the seeded server-side config needs (step 4), by
+   hand, over SSH.
+9. Push again (or re-run the workflow) — this run's `deploy.sh` brings up
+   the container, installs the HTTP-only bootstrap vhost, requests the
+   cert, and swaps in the full HTTPS vhost.
+
 ## Migrating a site to Docker
 
 1. In the app's own repo: containerize it (Dockerfile/compose), point its
