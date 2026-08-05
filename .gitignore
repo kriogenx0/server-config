@@ -6,6 +6,9 @@
 *.log
 logs/
 
+# Build/output directories
+dist/
+
 # Per-app nginx site configs now live in each app's own repo (see README) —
 # don't track the server's copies here. `default` is host-level, not
 # per-app, so it stays tracked.
