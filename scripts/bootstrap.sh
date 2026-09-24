@@ -122,6 +122,21 @@ sudo find /tmp -maxdepth 1 -name 'passenger-error-*.html' -delete
 printf '#!/bin/sh\nfind /tmp -maxdepth 1 -name "passenger-error-*.html" -mtime +3 -delete\n' | sudo tee /etc/cron.daily/passenger-error-clean > /dev/null
 sudo chmod 755 /etc/cron.daily/passenger-error-clean
 
+# Log rotation: logrotate's systemd timer does the daily run (nginx, syslog,
+# auth.log, php-fpm already have stock configs). Two gaps on this host:
+#  - btmp (failed-login log) only rotated monthly and reached 250M+.
+#  - Docker's default json-file driver never rotates container logs.
+sudo apt-get install -y logrotate
+sudo systemctl enable --now logrotate.timer
+printf '/var/log/btmp {\n    missingok\n    weekly\n    maxsize 50M\n    rotate 2\n    compress\n    create 0660 root utmp\n}\n' | sudo tee /etc/logrotate.d/btmp > /dev/null
+sudo logrotate --debug /etc/logrotate.conf > /dev/null
+
+# Docker log cap. Only applies to containers created after the daemon next
+# restarts -- not restarted here, since that would bounce every site;
+# existing containers keep unlimited logs until recreated.
+sudo mkdir -p /etc/docker
+printf '{\n  "log-driver": "json-file",\n  "log-opts": { "max-size": "10m", "max-file": "3" }\n}\n' | sudo tee /etc/docker/daemon.json > /dev/null
+
 # Passwordless sudo for site.sh: it makes many short-lived SSH connections
 # per command (see site.sh's header), so needing a password each time isn't
 # workable. Scoped narrowly to the mkdir/vhost-toggle/reload commands it

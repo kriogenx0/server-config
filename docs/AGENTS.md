@@ -33,3 +33,7 @@ To keep Redis accessible, it should be in one container running on the machine.
 # Simple Sites
 
 Basic sites not needing their own dedicated git repo can have their sites here.
+
+# Changes
+
+Any time there is any change to the server, it should be documented here. Whenever there is a change here, it should run on the server.
