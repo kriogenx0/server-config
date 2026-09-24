@@ -6,8 +6,8 @@
 #
 # One-time setup, before the first run (interactive -- deploy has no sudo
 # to install its own sudoers rule, only admin does):
-#   scp sudoers.d/flyer.ironyoung.com admin@104.131.183.186:/tmp/
-#   ssh -t admin@104.131.183.186 'sudo visudo -c -f /tmp/flyer.ironyoung.com && sudo install -m 0440 -o root -g root /tmp/flyer.ironyoung.com /etc/sudoers.d/flyer.ironyoung.com && rm /tmp/flyer.ironyoung.com'
+#   scp sudoers.d/flyer-ironyoung-com admin@104.131.183.186:/tmp/
+#   ssh -t admin@104.131.183.186 'sudo visudo -c -f /tmp/flyer-ironyoung-com && sudo install -m 0440 -o root -g root /tmp/flyer-ironyoung-com /etc/sudoers.d/flyer-ironyoung-com && rm /tmp/flyer-ironyoung-com'
 #
 # Safe to re-run; skips certbot once the cert exists.
 set -euo pipefail

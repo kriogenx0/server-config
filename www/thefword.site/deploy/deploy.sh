@@ -6,8 +6,8 @@
 #
 # One-time setup, before the first run (interactive -- deploy has no sudo
 # to install its own sudoers rule, only admin does):
-#   scp sudoers.d/thefword.site admin@104.131.183.186:/tmp/
-#   ssh -t admin@104.131.183.186 'sudo visudo -c -f /tmp/thefword.site && sudo install -m 0440 -o root -g root /tmp/thefword.site /etc/sudoers.d/thefword.site && rm /tmp/thefword.site'
+#   scp sudoers.d/thefword-site admin@104.131.183.186:/tmp/
+#   ssh -t admin@104.131.183.186 'sudo visudo -c -f /tmp/thefword-site && sudo install -m 0440 -o root -g root /tmp/thefword-site /etc/sudoers.d/thefword-site && rm /tmp/thefword-site'
 #
 # DNS (thefword.site + www A records -> the host's IP) must resolve before
 # certbot's http-01 challenge can succeed -- this script doesn't check
