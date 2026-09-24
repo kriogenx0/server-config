@@ -40,7 +40,6 @@ local machine; it SSHes out to the server rather than running on it:
 
 ```
 ./site.sh bootstrap                                          # ship + run bootstrap.sh as admin
-./site.sh pull-nginx                                          # mirror the server's /etc/nginx into nginx/ here
 ./site.sh new <domain> <compose-file> <service> [env-file]   # bring up the container + a stable port
 ./site.sh redeploy <domain> [service]                         # pull + recreate container
 ./site.sh enable <domain>                                     # symlink into sites-enabled + reload
@@ -104,9 +103,9 @@ Cert paths stay per-vhost since they're domain-specific — those two lines
 are the only TLS-related thing each vhost still writes itself.
 
 `site.sh bootstrap` deploys these two files to `/etc/nginx/snippets/` on
-the server. `site.sh pull-nginx` mirrors the server's live `/etc/nginx`
-back into this repo's `nginx/` (via `rsync --delete`) so you can `git diff`
-and catch drift regardless of what caused it.
+the server. This repo tracks nothing else from `/etc/nginx` — no stock
+nginx files, no per-site configs (those live in each app's own repo, or for
+simple sites under `www/<domain>/deploy/`).
 
 ## Conventions for per-app deploy scripts
 

@@ -9,10 +9,7 @@ logs/
 # Build/output directories
 dist/
 
-# Per-app nginx site configs now live in each app's own repo (see README) —
-# don't track the server's copies here. `default` is host-level, not
-# per-app, so it stays tracked.
-nginx/sites-available/*
-!nginx/sites-available/default
-nginx/sites-enabled/*
-!nginx/sites-enabled/default
+# This repo tracks only the shared nginx snippets. Stock nginx files and
+# per-app site configs live on the server / in each app's own repo.
+nginx/*
+!nginx/snippets/

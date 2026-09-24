@@ -15,7 +15,6 @@
 #
 # Usage:
 #   ./site.sh bootstrap
-#   ./site.sh pull-nginx
 #   ./site.sh new <domain> <compose-file> <service> [env-file]
 #   ./site.sh redeploy <domain> [service]
 #   ./site.sh enable <domain>
@@ -47,13 +46,12 @@
 set -euo pipefail
 
 SSH_TARGET="deploy@104.131.183.186"
-ADMIN_TARGET="admin@104.131.183.186" # host-level admin, used only by `bootstrap`/`pull-nginx`
+ADMIN_TARGET="admin@104.131.183.186" # host-level admin, used only by `bootstrap`
 
 usage() {
   cat >&2 <<'EOF'
 Usage:
   ./site.sh bootstrap
-  ./site.sh pull-nginx
   ./site.sh new <domain> <compose-file> <service> [env-file]
   ./site.sh redeploy <domain> [service]
   ./site.sh enable <domain>
@@ -90,14 +88,6 @@ cmd_bootstrap() {
   scp "$SCRIPT_DIR"/nginx/snippets/*.conf "$ADMIN_TARGET:~/nginx-snippets/"
   echo "==> Running it on $ADMIN_TARGET (needs a terminal for sudo's password prompt)"
   ssh -t "$ADMIN_TARGET" "chmod +x ~/bootstrap.sh && ~/bootstrap.sh"
-}
-
-# ---- pull-nginx: mirror the server's /etc/nginx into this repo's nginx/ --
-cmd_pull_nginx() {
-  local SCRIPT_DIR; SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-  echo "==> Pulling /etc/nginx from $ADMIN_TARGET into $SCRIPT_DIR/nginx/"
-  rsync -az --delete -e ssh "$ADMIN_TARGET:/etc/nginx/" "$SCRIPT_DIR/nginx/"
-  echo "Done. Review with: git -C '$SCRIPT_DIR' status -- nginx/"
 }
 
 # ---- new: bring up a docker-backed site's container + port -------------
@@ -275,7 +265,6 @@ cmd="${1:-}"
 if [ "$#" -gt 0 ]; then shift; fi
 case "$cmd" in
   bootstrap) cmd_bootstrap "$@" ;;
-  pull-nginx) cmd_pull_nginx "$@" ;;
   new) cmd_new "$@" ;;
   redeploy) cmd_redeploy "$@" ;;
   enable) cmd_enable "$@" ;;
