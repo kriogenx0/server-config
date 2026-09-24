@@ -111,6 +111,17 @@ fi
 sudo swapon /swapfile 2>/dev/null || true
 grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab > /dev/null
 
+# Disk hygiene: the journal had no size cap (grew to 3.6G) and Passenger
+# dumps a ~250K passenger-error-*.html into /tmp on every failed app start
+# (22k files, 5.4G). Cap the journal, and clear stale error pages daily.
+sudo mkdir -p /etc/systemd/journald.conf.d
+printf '[Journal]\nSystemMaxUse=200M\n' | sudo tee /etc/systemd/journald.conf.d/size.conf > /dev/null
+sudo systemctl restart systemd-journald
+sudo journalctl --vacuum-size=200M
+sudo find /tmp -maxdepth 1 -name 'passenger-error-*.html' -delete
+printf '#!/bin/sh\nfind /tmp -maxdepth 1 -name "passenger-error-*.html" -mtime +3 -delete\n' | sudo tee /etc/cron.daily/passenger-error-clean > /dev/null
+sudo chmod 755 /etc/cron.daily/passenger-error-clean
+
 # Passwordless sudo for site.sh: it makes many short-lived SSH connections
 # per command (see site.sh's header), so needing a password each time isn't
 # workable. Scoped narrowly to the mkdir/vhost-toggle/reload commands it
