@@ -14,14 +14,14 @@
 # decommissioning).
 #
 # Usage:
-#   ./site.sh bootstrap
-#   ./site.sh new <domain> <compose-file> <service> [env-file]
-#   ./site.sh redeploy <domain> [service]
-#   ./site.sh enable <domain>
-#   ./site.sh disable <domain>
-#   ./site.sh remove <domain> [--stop] [--purge]
-#   ./site.sh list
-#   ./site.sh logs <domain> [docker|nginx-access|nginx-error]
+#   ./scripts/site.sh bootstrap
+#   ./scripts/site.sh new <domain> <compose-file> <service> [env-file]
+#   ./scripts/site.sh redeploy <domain> [service]
+#   ./scripts/site.sh enable <domain>
+#   ./scripts/site.sh disable <domain>
+#   ./scripts/site.sh remove <domain> [--stop] [--purge]
+#   ./scripts/site.sh list
+#   ./scripts/site.sh logs <domain> [docker|nginx-access|nginx-error]
 #
 # `bootstrap` copies this repo's bootstrap.sh (and nginx/snippets/) to
 # admin@ (host-level admin, not deploy — bootstrap.sh needs broad sudo
@@ -51,14 +51,14 @@ ADMIN_TARGET="admin@104.131.183.186" # host-level admin, used only by `bootstrap
 usage() {
   cat >&2 <<'EOF'
 Usage:
-  ./site.sh bootstrap
-  ./site.sh new <domain> <compose-file> <service> [env-file]
-  ./site.sh redeploy <domain> [service]
-  ./site.sh enable <domain>
-  ./site.sh disable <domain>
-  ./site.sh remove <domain> [--stop] [--purge]
-  ./site.sh list
-  ./site.sh logs <domain> [docker|nginx-access|nginx-error]
+  ./scripts/site.sh bootstrap
+  ./scripts/site.sh new <domain> <compose-file> <service> [env-file]
+  ./scripts/site.sh redeploy <domain> [service]
+  ./scripts/site.sh enable <domain>
+  ./scripts/site.sh disable <domain>
+  ./scripts/site.sh remove <domain> [--stop] [--purge]
+  ./scripts/site.sh list
+  ./scripts/site.sh logs <domain> [docker|nginx-access|nginx-error]
 EOF
   exit 1
 }
@@ -81,11 +81,12 @@ enable_and_reload() {
 cmd_bootstrap() {
   local SCRIPT_DIR; SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
   local BOOTSTRAP="$SCRIPT_DIR/bootstrap.sh"
+  local ROOT_DIR; ROOT_DIR=$(dirname "$SCRIPT_DIR")
   [ -f "$BOOTSTRAP" ] || { echo "No such file: $BOOTSTRAP" >&2; exit 1; }
   echo "==> Copying bootstrap.sh and shared nginx snippets to $ADMIN_TARGET"
   scp "$BOOTSTRAP" "$ADMIN_TARGET:~/bootstrap.sh"
   ssh "$ADMIN_TARGET" "mkdir -p ~/nginx-snippets"
-  scp "$SCRIPT_DIR"/nginx/snippets/*.conf "$ADMIN_TARGET:~/nginx-snippets/"
+  scp "$ROOT_DIR"/nginx/snippets/*.conf "$ADMIN_TARGET:~/nginx-snippets/"
   echo "==> Running it on $ADMIN_TARGET (needs a terminal for sudo's password prompt)"
   ssh -t "$ADMIN_TARGET" "chmod +x ~/bootstrap.sh && ~/bootstrap.sh"
 }

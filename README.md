@@ -22,11 +22,11 @@ intentionally has no general sudo, only the narrow grant `site.sh` needs
 Run once on a fresh box, or after adding a new tool everything should share:
 
 ```
-scp bootstrap.sh admin@104.131.183.186:~
+scp scripts/bootstrap.sh admin@104.131.183.186:~
 ssh -t admin@104.131.183.186 ./bootstrap.sh
 ```
 
-or equivalently, `./site.sh bootstrap` from this repo does the same two
+or equivalently, `./scripts/site.sh bootstrap` from this repo does the same two
 steps (plus it also ships `nginx/snippets/` — see below). Safe to re-run —
 every step is idempotent. Both use `-t`/a terminal so the one password
 prompt for `sudo` covers the whole run (sudo caches it for a few minutes);
@@ -39,14 +39,14 @@ app's own job, in its own repo (see Conventions below). Run it from your
 local machine; it SSHes out to the server rather than running on it:
 
 ```
-./site.sh bootstrap                                          # ship + run bootstrap.sh as admin
-./site.sh new <domain> <compose-file> <service> [env-file]   # bring up the container + a stable port
-./site.sh redeploy <domain> [service]                         # pull + recreate container
-./site.sh enable <domain>                                     # symlink into sites-enabled + reload
-./site.sh disable <domain>                                    # unlink from sites-enabled + reload
-./site.sh remove <domain> [--stop] [--purge]                  # disable, optionally stop/delete
-./site.sh list                                                # enabled sites, ports, cert expiry
-./site.sh logs <domain> [docker|nginx-access|nginx-error]     # tail logs
+./scripts/site.sh bootstrap                                          # ship + run bootstrap.sh as admin
+./scripts/site.sh new <domain> <compose-file> <service> [env-file]   # bring up the container + a stable port
+./scripts/site.sh redeploy <domain> [service]                         # pull + recreate container
+./scripts/site.sh enable <domain>                                     # symlink into sites-enabled + reload
+./scripts/site.sh disable <domain>                                    # unlink from sites-enabled + reload
+./scripts/site.sh remove <domain> [--stop] [--purge]                  # disable, optionally stop/delete
+./scripts/site.sh list                                                # enabled sites, ports, cert expiry
+./scripts/site.sh logs <domain> [docker|nginx-access|nginx-error]     # tail logs
 ```
 
 `new` brings up only the named service from your compose file — never any
@@ -170,7 +170,7 @@ re-implements the small bit of `site.sh new` it needs (picking/persisting
    here depends on this, but certbot's http-01 challenge will fail without
    it.
 2. If `bootstrap.sh` changed since this host was last bootstrapped, apply
-   it: `./site.sh bootstrap` (one interactive `sudo` password prompt).
+   it: `./scripts/site.sh bootstrap` (one interactive `sudo` password prompt).
 3. In the app's own repo: `docker-compose.prod.yml`, `deploy/deploy.sh`,
    optionally `deploy/server_setup.sh` (for any server-side secret file
    the app needs that can't be generated automatically, e.g. an app config
@@ -216,12 +216,23 @@ re-implements the small bit of `site.sh new` it needs (picking/persisting
 1. In the app's own repo: containerize it (Dockerfile/compose), point its
    config at the managed database instead of a local db container, and add
    an nginx vhost conf per the pattern above.
-2. Here: `./site.sh new <domain> <compose-file> <service> [env-file]` to
+2. Here: `./scripts/site.sh new <domain> <compose-file> <service> [env-file]` to
    bring up the container and get a stable `HOST_PORT` for the app's vhost
    to `proxy_pass` to.
 3. In the app's repo: wire up its deploy workflow (e.g. GitHub Actions) to
    copy its vhost conf in, run the certbot command above, and reload nginx,
    using its own narrow sudoers rule.
 4. Once it's confirmed working end to end, retire the old vhost — e.g.
-   `./site.sh disable <domain>` (or remove it by hand for a Passenger
+   `./scripts/site.sh disable <domain>` (or remove it by hand for a Passenger
    site's `/etc/nginx/sites-enabled` entry, which site.sh doesn't manage).
+
+## Layout
+
+```
+scripts/bootstrap.sh   host provisioning, run on the server as admin
+scripts/site.sh        local ops CLI that SSHes to the server
+nginx/snippets/        shared ACME/TLS snippets shipped by bootstrap
+www/<domain>/          simple static sites without their own repo
+                       (index.html + deploy/ with vhosts, sudoers, deploy.sh)
+docs/AGENTS.md         purpose and conventions for this repo
+```
