@@ -131,6 +131,22 @@ sudo systemctl enable --now logrotate.timer
 printf '/var/log/btmp {\n    missingok\n    weekly\n    maxsize 50M\n    rotate 2\n    compress\n    create 0660 root utmp\n}\n' | sudo tee /etc/logrotate.d/btmp > /dev/null
 sudo logrotate --debug /etc/logrotate.conf > /dev/null
 
+# Don't access-log health checks (/up, /health, /healthz, /healthcheck) --
+# one global map + conditional on the stock access_log covers every vhost,
+# including apps' own. Reverts itself if nginx -t rejects the result.
+printf 'map $request_uri $loggable {\n    ~^/(up|health|healthz|healthcheck)(\\?|$) 0;\n    default 1;\n}\n' | sudo tee /etc/nginx/conf.d/skip-health-logs.conf > /dev/null
+if grep -qE '^\s*access_log /var/log/nginx/access.log;' /etc/nginx/nginx.conf; then
+  sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+  sudo sed -i 's#^\(\s*\)access_log /var/log/nginx/access.log;#\1access_log /var/log/nginx/access.log combined if=$loggable;#' /etc/nginx/nginx.conf
+  if sudo nginx -t; then
+    sudo rm /etc/nginx/nginx.conf.bak
+    sudo systemctl reload nginx
+  else
+    sudo mv /etc/nginx/nginx.conf.bak /etc/nginx/nginx.conf
+    echo "WARNING: health-check log filter rejected by nginx -t; reverted" >&2
+  fi
+fi
+
 # Docker log cap. Only applies to containers created after the daemon next
 # restarts -- not restarted here, since that would bounce every site;
 # existing containers keep unlimited logs until recreated.
