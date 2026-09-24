@@ -129,6 +129,9 @@ sudo chmod 755 /etc/cron.daily/passenger-error-clean
 sudo apt-get install -y logrotate
 sudo systemctl enable --now logrotate.timer
 printf '/var/log/btmp {\n    missingok\n    weekly\n    maxsize 50M\n    rotate 2\n    compress\n    create 0660 root utmp\n}\n' | sudo tee /etc/logrotate.d/btmp > /dev/null
+# Orphaned uncompressed btmp.1 from the old monthly rotation (154M): the config
+# above rotates to btmp.1.gz, so logrotate would never pick this one up.
+sudo rm -f /var/log/btmp.1
 sudo logrotate --debug /etc/logrotate.conf > /dev/null
 
 # Don't access-log health checks (/up, /health, /healthz, /healthcheck) --
