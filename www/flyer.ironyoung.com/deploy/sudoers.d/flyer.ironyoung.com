@@ -1,0 +1,2 @@
+# Installed once, by hand, as admin -- see deploy.sh's header.
+deploy ALL=(root) NOPASSWD: /bin/cp /tmp/flyer.ironyoung.com.conf /etc/nginx/sites-available/flyer.ironyoung.com, /bin/cp /tmp/flyer.ironyoung.com.bootstrap.conf /etc/nginx/sites-available/flyer.ironyoung.com, /usr/bin/certbot certonly --webroot -w /var/www/certbot -d flyer.ironyoung.com --non-interactive --agree-tos -m simplex0@gmail.com --deploy-hook "systemctl reload nginx"
