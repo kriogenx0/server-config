@@ -150,6 +150,37 @@ if grep -qE '^\s*access_log /var/log/nginx/access.log;' /etc/nginx/nginx.conf; t
   fi
 fi
 
+# Disk-space monitor: hourly check of /. Over THRESHOLD (default 85%) it logs
+# to syslog (`journalctl -t disk-monitor`) and, if WEBHOOK_URL is set in
+# /etc/disk-monitor.conf, POSTs {"text": "..."} to it (Slack/Discord-style).
+# Re-alerts at most once every 23h while the disk stays full. The conf file
+# is never overwritten, so a webhook set by hand survives re-runs.
+sudo tee /usr/local/bin/disk-monitor > /dev/null <<'EOF'
+#!/bin/sh
+THRESHOLD=85
+WEBHOOK_URL=
+[ -f /etc/disk-monitor.conf ] && . /etc/disk-monitor.conf
+STATE=/var/tmp/disk-monitor.last
+
+use=$(df --output=pcent / | tail -1 | tr -dc 0-9)
+[ "$use" -lt "$THRESHOLD" ] && { rm -f "$STATE"; exit 0; }
+[ -n "$(find "$STATE" -mmin -1380 2>/dev/null)" ] && exit 0
+touch "$STATE"
+
+free=$(df -h --output=avail / | tail -1 | tr -d ' ')
+top=$(du -xk --max-depth=2 /var /tmp /home 2>/dev/null | sort -rn | sed -n '2,6p' | awk '{printf "%s %dM; ", $2, $1/1024}')
+msg="$(hostname): / is ${use}% full (${free} free). Biggest: ${top}"
+logger -p user.crit -t disk-monitor "$msg"
+[ -n "$WEBHOOK_URL" ] && curl -fsS -m 10 -X POST -H 'Content-Type: application/json' \
+  -d "{\"text\": \"$msg\"}" "$WEBHOOK_URL" > /dev/null
+exit 0
+EOF
+sudo chmod 755 /usr/local/bin/disk-monitor
+if [ ! -f /etc/disk-monitor.conf ]; then
+  printf '# THRESHOLD=85\n# WEBHOOK_URL=https://hooks.slack.com/services/...\n' | sudo tee /etc/disk-monitor.conf > /dev/null
+fi
+printf '0 * * * * root /usr/local/bin/disk-monitor\n' | sudo tee /etc/cron.d/disk-monitor > /dev/null
+
 # Docker log cap. Only applies to containers created after the daemon next
 # restarts -- not restarted here, since that would bounce every site;
 # existing containers keep unlimited logs until recreated.
